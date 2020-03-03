@@ -52,18 +52,6 @@ yarn:
     paths:
       - node_modules/
 
-assets:
-  stage: building
-  only:
-    - master
-  dependencies:
-    - yarn
-  script:
-    - yarn --version
-    - yarn run production --progress false
-    expire_in: 1 days
-    when: always
-
 migration:
   stage: building
   only:
@@ -89,7 +77,6 @@ phpunit:
   services:
     - name: mysql:5.7
   dependencies:
-    - assets
     - composer
     - migration
   script:
