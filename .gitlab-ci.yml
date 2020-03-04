@@ -22,7 +22,6 @@ composer:
   only:
     - master
   script:
-    - php -v
     - composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
     - cp "$ENV" .env
     - php artisan key:generate
@@ -41,7 +40,6 @@ yarn:
   only:
     - master
   script:
-    - yarn --version
     - yarn install --pure-lockfile
   artifacts:
     paths:
@@ -52,6 +50,24 @@ yarn:
     paths:
       - node_modules/
 
+assets:
+  stage: building
+  only:
+    - master
+  dependencies:
+    - composer
+    - yarn
+  script:
+    - yarn run production --progress false
+  artifacts:
+    paths:
+      - public/css/
+      - public/js/
+      - public/fonts/
+      - public/mix-manifest.json
+    expire_in: 1 days
+    when: always
+
 migration:
   stage: building
   only:
@@ -61,7 +77,6 @@ migration:
   dependencies:
     - composer
   script:
-    - mysql --version
     - cp "$ENV" .env
     - php artisan migrate:fresh --seed
   artifacts:
@@ -80,9 +95,7 @@ phpunit:
     - composer
     - migration
   script:
-    - php -v
-    - cp "$ENV" .env
-    - ./vendor/bin/phpunit --colors=never
+    - php artisan test
   allow_failure: true
   artifacts:
     paths:
@@ -90,11 +103,55 @@ phpunit:
     expire_in: 1 days
     when: on_failure
 
+phpcs:
+  stage: testing
+  only:
+    - master
+  dependencies:
+    - composer
+  script:
+    - php -v
+    - ./vendor/bin/phpcs --standard=psr12 app test
+  allow_failure: true
+  artifacts:
+    paths:
+      - ./storage/logs
+    expire_in: 1 days
+    when: on_failure
+
+phpstan:
+  stage: testing
+  only:
+#    - master
+  script:
+    - php -v
+    - cp "$ENV" .env
+    - ./vendor/bin/phpstan analyze -l 1 --debug
+  dependencies:
+    - composer
+  artifacts:
+    paths:
+      - ./storage/logs
+    expire_in: 1 days
+    when: on_failure
+
+phpcpd:
+  stage: testing
+  only:
+    - master
+  script:
+    - test -f phpcpd.phar || curl -L https://phar.phpunit.de/phpcpd.phar -o phpcpd.phar
+    - php phpcpd.phar app/ --min-lines=50
+  allow_failure: true
+  dependencies: []
+  cache:
+    paths:
+      - phpcpd.phar
+
 sensiolabs:
   stage: security
   only:
     - master
-
   script:
     - test -d security-checker || git clone https://github.com/sensiolabs/security-checker.git
     - cd security-checker
